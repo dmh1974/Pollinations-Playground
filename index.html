@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollinations Playground</title>
+    <style>
+        body { background: #202124; color: #e8eaed; font-family: Arial, sans-serif; font-size: 16px; }
+        .page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; }
+        .container { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 24px; }
+        .card { background: #303134; border: 1px solid #5f6368; padding: 32px; border-radius: 24px; display: flex; flex-direction: column; gap: 24px; box-sizing: border-box; }
+        .progress-row { display: flex; justify-content: space-between; align-items: center; position: relative; margin-bottom: 16px; }
+        .progress-line { position: absolute; height: 2px; top: 6px; left: 16px; right: 16px; background: #5f6368; z-index: 0; }
+        .node { width: 12px; height: 12px; border-radius: 50%; background: #5f6368; transition: 0.5s; position: relative; z-index: 1; }
+        .node-active { background: #8ab4f8; box-shadow: 0 0 12px #8ab4f8; }
+        .node-complete { background: #0f9d58; }
+        .node-label { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 10px; white-space: nowrap; color: #9aa0a6; }
+        .active-label { color: #8ab4f8; font-weight: bold; }
+        .topic-title { font-size: 16px; font-weight: 500; color: #e8eaed; }
+        .tutor-box { font-size: 16px; line-height: 1.6; color: #e8eaed; }
+        .input-area { display: flex; flex-direction: column; gap: 12px; }
+        .input-wrap { position: relative; }
+        .theme-input { width: 100%; background: #202124; border: 1px solid #5f6368; color: #e8eaed; padding: 16px; border-radius: 16px; outline: none; box-sizing: border-box; font-family: inherit; font-size: 16px; }
+        .theme-input:focus { border-color: #8ab4f8; box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.35); }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .model-section { display: flex; flex-direction: column; gap: 8px; }
+        .model-select { padding: 6px 12px; border-radius: 4px; border: 1px solid #5f6368; background: #202124; color: #e8eaed; font-family: inherit; font-size: 14px; }
+        .model-card { background: #202124; border: 1px solid #5f6368; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .model-title { font-size: 14px; font-weight: 600; color: #e8eaed; }
+        .model-desc { font-size: 13px; color: #9aa0a6; }
+        .model-row { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #e8eaed; }
+        .model-chip { border: 1px solid #5f6368; border-radius: 12px; padding: 2px 8px; background: #303134; }
+        .model-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 12px; color: #e8eaed; }
+        .model-label { color: #9aa0a6; }
+        .toggle-btn.active { background: #0f9d58; border-color: #0f9d58; color: #fff; }
+        .config-section { display: flex; flex-direction: column; gap: 8px; }
+        .config-panel { display: grid; gap: 8px; }
+        .config-field { display: flex; flex-direction: column; gap: 4px; }
+        .config-label { font-size: 12px; color: #9aa0a6; }
+        .config-input { padding: 6px 12px; border-radius: 4px; border: 1px solid #5f6368; background: #202124; color: #e8eaed; font-family: inherit; font-size: 14px; }
+        .config-input[type="number"] { width: 140px; }
+        .config-checkbox { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9aa0a6; }
+        .profile-row { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 12px; color: #e8eaed; word-break: break-word; }
+        .usage-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #e8eaed; }
+        .table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #8ab4f8 #202124; }
+        .table-scroll::-webkit-scrollbar { height: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: #202124; }
+        .table-scroll::-webkit-scrollbar-thumb { background: #8ab4f8; border-radius: 3px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: #9bb5f9; }
+        .usage-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .icon-btn { border: 1px solid #5f6368; background: #303134; color: #e8eaed; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+        .usage-table th, .usage-table td { border-top: 1px solid #5f6368; padding: 6px 8px; text-align: left; vertical-align: top; }
+        .usage-table thead th { color: #9aa0a6; font-weight: 600; border-top: none; }
+        .buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .btn { padding: 6px 12px; border-radius: 4px; border: 1px solid #5f6368; background: #303134; color: #e8eaed; font-weight: 400; cursor: pointer; font-family: inherit; font-size: 14px; line-height: normal; }
+        .feedback { text-align: center; font-size: 12px; color: #9aa0a6; font-style: italic; }
+        .hidden { display: none; }
+        .media-output { display: grid; gap: 12px; }
+        .media-output img, .media-output video { max-width: 100%; border-radius: 6px; background: #202124; }
+        .media-output audio { width: 100%; }
+        .spinner { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border: 2px solid #5f6368; border-top: 2px solid #8ab4f8; border-radius: 50%; animation: spin 1s linear infinite; z-index: 10; }
+        @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+    </style>
+</head>
+<body class="page">
+
+    <div class="container">
+        <div class="card">
+            <div class="config-section">
+                <div class="config-field">
+                    <label for="api-key-input" class="config-label">Pollinations API key</label>
+                    <input id="api-key-input" type="text" class="config-input" placeholder="Enter API key">
+        </div>
+                <div class="config-field">
+                    <label for="auth-redirect" class="config-label">Redirect URL</label>
+                    <input id="auth-redirect" type="text" class="config-input" placeholder="https://myapp.com">
+                </div>
+                <div class="config-field">
+                    <label for="auth-permissions" class="config-label">Permissions (comma-separated)</label>
+                    <input id="auth-permissions" type="text" class="config-input" placeholder="profile,balance,usage">
+                </div>
+                <div class="config-field">
+                    <label for="auth-models" class="config-label">Models (comma-separated)</label>
+                    <input id="auth-models" type="text" class="config-input" placeholder="flux,openai">
+                </div>
+                <div class="row">
+                    <div class="config-field">
+                        <label for="auth-expiry" class="config-label">Expiry (days)</label>
+                        <input id="auth-expiry" type="number" min="1" class="config-input" value="30">
+                    </div>
+                    <div class="config-field">
+                        <label for="auth-budget" class="config-label">Budget</label>
+                        <input id="auth-budget" type="number" min="1" class="config-input" placeholder="10">
+                    </div>
+                </div>
+                <div class="row">
+                    <button type="button" id="auth-start" class="btn">Get API key</button>
+                    <button type="button" id="auth-clear" class="btn">Clear key</button>
+                </div>
+                <div id="profile-card" class="model-card hidden"></div>
+                <div id="balance-card" class="model-card hidden"></div>
+                <div id="usage-card" class="model-card hidden"></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="model-section">
+                <div class="model-title">Image Models</div>
+                <select id="image-model-select" class="model-select">
+                    <option value="">Loading image models...</option>
+                </select>
+                <button type="button" id="image-model-toggle" class="btn">Show model details</button>
+                <div id="image-model-details" class="model-card hidden"></div>
+            </div>
+            <div class="config-section">
+                <div class="config-field">
+                    <label for="image-prompt" class="config-label">Prompt</label>
+                    <textarea id="image-prompt" rows="2" class="config-input" placeholder="A beautiful sunset over mountains"></textarea>
+                </div>
+                <div class="row">
+                    <div class="config-field">
+                        <label for="image-width" class="config-label">Width</label>
+                        <input id="image-width" type="number" min="1" class="config-input" value="1024">
+                    </div>
+                    <div class="config-field">
+                        <label for="image-height" class="config-label">Height</label>
+                        <input id="image-height" type="number" min="1" class="config-input" value="1024">
+                    </div>
+                    <div class="config-field">
+                        <label for="image-seed" class="config-label">Seed</label>
+                        <input id="image-seed" type="number" class="config-input" value="0">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="config-field">
+                        <label for="image-negative" class="config-label">Negative prompt</label>
+                        <input id="image-negative" type="text" class="config-input" value="worst quality, blurry">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="config-field">
+                        <label for="image-quality" class="config-label">Quality</label>
+                        <select id="image-quality" class="config-input">
+                            <option value="low">low</option>
+                            <option value="medium" selected>medium</option>
+                            <option value="high">high</option>
+                            <option value="hd">hd</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label for="image-transparent" class="config-label">Transparent</label>
+                        <select id="image-transparent" class="config-input">
+                            <option value="false" selected>false</option>
+                            <option value="true">true</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label for="image-safe" class="config-label">Safe</label>
+                        <select id="image-safe" class="config-input">
+                            <option value="false" selected>false</option>
+                            <option value="true">true</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="config-field">
+                        <label for="image-enhance" class="config-label">Enhance</label>
+                        <select id="image-enhance" class="config-input">
+                            <option value="false" selected>false</option>
+                            <option value="true">true</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label for="image-duration" class="config-label">Duration</label>
+                        <input id="image-duration" type="number" min="1" max="10" class="config-input" value="1">
+                    </div>
+                    <div class="config-field">
+                        <label for="image-aspect" class="config-label">Aspect ratio</label>
+                        <select id="image-aspect" class="config-input">
+                            <option value="" selected>auto</option>
+                            <option value="16:9">16:9</option>
+                            <option value="9:16">9:16</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="config-field">
+                        <label for="image-audio" class="config-label">Audio</label>
+                        <select id="image-audio" class="config-input">
+                            <option value="false" selected>false</option>
+                            <option value="true">true</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label for="image-ref" class="config-label">Reference image URL(s)</label>
+                        <input id="image-ref" type="text" class="config-input" placeholder="https://...">
+                    </div>
+                </div>
+                <div class="row">
+                    <button type="button" id="image-generate" class="btn">Generate</button>
+                </div>
+            </div>
+            <div id="image-output" class="media-output"></div>
+        </div>
+        <div class="card">
+            <div class="row">
+                <button type="button" id="mode-chat" class="btn toggle-btn">Chat</button>
+                <button type="button" id="mode-socrates" class="btn toggle-btn">Socrates</button>
+            </div>
+            <div class="progress-row">
+                <div class="progress-line"></div>
+                <div class="node" id="n0"><span class="node-label" id="l0">Foundations</span></div>
+                <div class="node" id="n1"><span class="node-label" id="l1">Mechanics</span></div>
+                <div class="node" id="n2"><span class="node-label" id="l2">Dynamics</span></div>
+                <div class="node" id="n3"><span class="node-label" id="l3">Synthesis</span></div>
+                <div class="node" id="n4"><span class="node-label" id="l4">Mastery</span></div>
+            </div>
+            <div class="model-section">
+                <select id="model-select" class="model-select">
+                    <option value="">Loading models...</option>
+                </select>
+                <button type="button" id="model-toggle" class="btn">Show model details</button>
+                <div id="model-details" class="model-card hidden"></div>
+            </div>
+            <div id="config-section" class="config-section hidden">
+                <button type="button" id="config-toggle" class="btn">Show config</button>
+                <div id="config-panel" class="config-panel hidden">
+                    <div class="config-field">
+                        <label for="config-system" class="config-label">System prompt</label>
+                        <textarea id="config-system" rows="3" class="config-input"></textarea>
+                    </div>
+                    <div class="config-field">
+                        <label for="config-temperature" class="config-label">Temperature</label>
+                        <input id="config-temperature" type="number" step="0.1" min="0" max="2" class="config-input" value="0.7">
+                    </div>
+                    <div class="config-field">
+                        <label for="config-top-p" class="config-label">Top P</label>
+                        <input id="config-top-p" type="number" step="0.1" min="0" max="1" class="config-input" value="1">
+                    </div>
+                    <div class="config-field">
+                        <label for="config-max-tokens" class="config-label">Max tokens</label>
+                        <input id="config-max-tokens" type="number" step="1" min="1" class="config-input" value="500">
+                    </div>
+                    <div class="config-field hidden" id="config-voice-field">
+                        <label for="config-voice" class="config-label">Voice</label>
+                        <select id="config-voice" class="config-input"></select>
+                    </div>
+                    <div class="config-field">
+                        <label class="config-checkbox">
+                            <input id="config-audio" type="checkbox">
+                            Enable audio output
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div id="topic-title" class="topic-title hidden"></div>
+            <div id="tutor-box" class="tutor-box">
+                What topic are we mastering today?
+            </div>
+            <div id="chat-audio" class="media-output hidden"></div>
+
+            <div class="input-area">
+                <div>
+                    <div id="level-buttons" class="row">
+                        <button type="button" class="btn toggle-btn level-btn" data-level="Beginner">Beginner</button>
+                        <button type="button" class="btn toggle-btn level-btn" data-level="Intermediate">Intermediate</button>
+                        <button type="button" class="btn toggle-btn level-btn" data-level="Advanced">Advanced</button>
+                    </div>
+                </div>
+                <div class="input-wrap">
+                    <textarea id="user-input" rows="2" placeholder="Enter a topic..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleTurn(); }" class="theme-input"></textarea>
+                    <div id="spinner" class="spinner"></div>
+                </div>
+                <div id="chat-media-row" class="row hidden">
+                    <input id="chat-media-input" type="file" class="config-input">
+                    <span id="chat-media-label" class="model-desc">No media selected</span>
+                    <button type="button" id="chat-media-clear" class="btn">Clear</button>
+                </div>
+                <div id="chat-history-row" class="config-checkbox hidden">
+                    <input id="config-history" type="checkbox" checked>
+                    Enable history
+            </div>
+                <div id="shortcut-buttons" class="hidden buttons">
+                    <button onclick="handleTurn('Yes'); document.getElementById('user-input').focus();" class="btn">Yes</button>
+                    <button onclick="handleTurn('No'); document.getElementById('user-input').focus();" class="btn">No</button>
+                    <button onclick="handleTurn('I don\'t know'); document.getElementById('user-input').focus();" class="btn">I don't know</button>
+                    <button onclick="handleTurn('Continue'); document.getElementById('user-input').focus();" class="btn">Continue</button>
+        </div>
+            </div>
+            <div id="feedback" class="feedback"></div>
+        </div>
+    </div>
+
+    <script>
+        let AUTH = localStorage.getItem("pollinations_api_key") || "";
+        let memory = [];
+        let state = { topic: "", level: "Beginner", nodeIndex: 0, mode: "chat" };
+        let modelCatalog = [];
+        let selectedModel = localStorage.getItem("chat_model") || "";
+        let modelDetailsOpen = false;
+        let imageModels = [];
+        let currentBalance = null;
+        let imageModelDetailsOpen = false;
+        let chatMedia = null;
+        let configState = {
+            systemPrompt: localStorage.getItem("chat_system_prompt") || "",
+            temperature: Number(localStorage.getItem("chat_temperature")) || 0.7,
+            topP: Number(localStorage.getItem("chat_top_p")) || 1,
+            maxTokens: Number(localStorage.getItem("chat_max_tokens")) || 500,
+            voice: localStorage.getItem("chat_voice") || "",
+            audioEnabled: localStorage.getItem("chat_audio_enabled") === "true",
+            historyEnabled: localStorage.getItem("chat_history_enabled") !== "false",
+            open: false
+        };
+
+        // Focus input on page load
+        window.addEventListener('load', function() {
+            document.getElementById('user-input').focus();
+            const apiKeyInput = document.getElementById('api-key-input');
+            apiKeyInput.value = localStorage.getItem("pollinations_api_key") || "";
+            const redirectInput = document.getElementById('auth-redirect');
+            redirectInput.value = location.href.split('#')[0];
+            document.getElementById('auth-start').addEventListener('click', function() {
+                startPollinationsAuth();
+            });
+            document.getElementById('auth-clear').addEventListener('click', function() {
+                apiKeyInput.value = "";
+                localStorage.removeItem("pollinations_api_key");
+                AUTH = "";
+                renderProfile(null);
+                renderBalance(null);
+                renderUsage(null);
+            });
+            apiKeyInput.addEventListener('input', function(event) {
+                const nextKey = event.target.value.trim();
+                if (nextKey) {
+                    localStorage.setItem("pollinations_api_key", nextKey);
+                    AUTH = nextKey;
+                    fetchProfile();
+                    fetchBalance();
+                    fetchUsage();
+                } else {
+                    localStorage.removeItem("pollinations_api_key");
+                    AUTH = "";
+                    renderProfile(null);
+                    renderBalance(null);
+                    renderUsage(null);
+                }
+            });
+            const keyFromHash = new URLSearchParams(location.hash.slice(1)).get('api_key');
+            if (keyFromHash) {
+                apiKeyInput.value = keyFromHash;
+                localStorage.setItem("pollinations_api_key", keyFromHash);
+                AUTH = keyFromHash;
+                history.replaceState(null, "", location.href.split('#')[0]);
+                fetchProfile();
+                fetchBalance();
+                fetchUsage();
+            }
+            if (AUTH) {
+                fetchProfile();
+                fetchBalance();
+                fetchUsage();
+            }
+            document.getElementById('mode-chat').addEventListener('click', function() {
+                switchMode("chat");
+            });
+            document.getElementById('mode-socrates').addEventListener('click', function() {
+                switchMode("socrates");
+            });
+            const defaultLevel = document.querySelector('.level-btn[data-level="Beginner"]');
+            if (defaultLevel) {
+                defaultLevel.classList.add('active');
+            }
+            document.getElementById('level-buttons').addEventListener('click', function(event) {
+                const button = event.target.closest('.level-btn');
+                if (!button) return;
+                state.level = button.dataset.level;
+                document.querySelectorAll('.level-btn').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+            });
+            const modelSelect = document.getElementById('model-select');
+            modelSelect.addEventListener('change', function() {
+                selectedModel = modelSelect.value;
+                localStorage.setItem("chat_model", selectedModel);
+                renderModelDetails();
+                updateVoiceOptions();
+                updateChatMediaSupport();
+            });
+            document.getElementById('image-generate').addEventListener('click', function() {
+                generateImage();
+            });
+            document.getElementById('image-model-select').addEventListener('change', function() {
+                renderImageModelDetails();
+            });
+            document.getElementById('image-model-toggle').addEventListener('click', function() {
+                imageModelDetailsOpen = !imageModelDetailsOpen;
+                updateImageModelDetailsVisibility();
+            });
+            document.getElementById('chat-media-input').addEventListener('change', function(event) {
+                handleChatMediaSelection(event.target.files[0]);
+            });
+            document.getElementById('chat-media-clear').addEventListener('click', function() {
+                clearChatMedia();
+            });
+            document.getElementById('model-toggle').addEventListener('click', function() {
+                modelDetailsOpen = !modelDetailsOpen;
+                updateModelDetailsVisibility();
+            });
+            document.getElementById('config-toggle').addEventListener('click', function() {
+                configState.open = !configState.open;
+                updateConfigVisibility();
+            });
+            document.getElementById('config-system').addEventListener('input', function(event) {
+                configState.systemPrompt = event.target.value;
+                localStorage.setItem("chat_system_prompt", configState.systemPrompt);
+            });
+            document.getElementById('config-temperature').addEventListener('input', function(event) {
+                configState.temperature = Number(event.target.value);
+                localStorage.setItem("chat_temperature", String(configState.temperature));
+            });
+            document.getElementById('config-top-p').addEventListener('input', function(event) {
+                configState.topP = Number(event.target.value);
+                localStorage.setItem("chat_top_p", String(configState.topP));
+            });
+            document.getElementById('config-max-tokens').addEventListener('input', function(event) {
+                configState.maxTokens = Number(event.target.value);
+                localStorage.setItem("chat_max_tokens", String(configState.maxTokens));
+            });
+            document.getElementById('config-voice').addEventListener('change', function(event) {
+                configState.voice = event.target.value;
+                localStorage.setItem("chat_voice", configState.voice);
+            });
+            document.getElementById('config-audio').addEventListener('change', function(event) {
+                configState.audioEnabled = event.target.checked;
+                localStorage.setItem("chat_audio_enabled", configState.audioEnabled ? "true" : "false");
+                if (!configState.audioEnabled) {
+                    setChatAudio(null);
+                }
+            });
+            document.getElementById('config-history').addEventListener('change', function(event) {
+                configState.historyEnabled = event.target.checked;
+                localStorage.setItem("chat_history_enabled", configState.historyEnabled ? "true" : "false");
+                if (!configState.historyEnabled && state.mode === "chat") {
+                    memory = [];
+                }
+            });
+            document.getElementById('image-model-select').addEventListener('change', function() {
+                localStorage.setItem("image_model", document.getElementById('image-model-select').value);
+            });
+            document.getElementById('image-prompt').addEventListener('input', function(event) {
+                localStorage.setItem("image_prompt", event.target.value);
+            });
+            document.getElementById('image-width').addEventListener('input', function(event) {
+                localStorage.setItem("image_width", event.target.value);
+            });
+            document.getElementById('image-height').addEventListener('input', function(event) {
+                localStorage.setItem("image_height", event.target.value);
+            });
+            document.getElementById('image-seed').addEventListener('input', function(event) {
+                localStorage.setItem("image_seed", event.target.value);
+            });
+            document.getElementById('image-negative').addEventListener('input', function(event) {
+                localStorage.setItem("image_negative", event.target.value);
+            });
+            document.getElementById('image-quality').addEventListener('change', function(event) {
+                localStorage.setItem("image_quality", event.target.value);
+            });
+            document.getElementById('image-transparent').addEventListener('change', function(event) {
+                localStorage.setItem("image_transparent", event.target.value);
+            });
+            document.getElementById('image-safe').addEventListener('change', function(event) {
+                localStorage.setItem("image_safe", event.target.value);
+            });
+            document.getElementById('image-enhance').addEventListener('change', function(event) {
+                localStorage.setItem("image_enhance", event.target.value);
+            });
+            document.getElementById('image-duration').addEventListener('input', function(event) {
+                localStorage.setItem("image_duration", event.target.value);
+            });
+            document.getElementById('image-aspect').addEventListener('change', function(event) {
+                localStorage.setItem("image_aspect", event.target.value);
+            });
+            document.getElementById('image-audio').addEventListener('change', function(event) {
+                localStorage.setItem("image_audio", event.target.value);
+            });
+            document.getElementById('image-ref').addEventListener('input', function(event) {
+                localStorage.setItem("image_ref", event.target.value);
+            });
+            hydrateSavedSettings();
+            updateModeUI();
+            fetchModelCatalog();
+            fetchImageModels();
+        });
+
+        async function fetchModelCatalog() {
+            try {
+                const res = await fetch("https://gen.pollinations.ai/text/models", {
+                    headers: AUTH ? { 'Authorization': `Bearer ${AUTH}` } : {}
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    modelCatalog = data.slice().sort((a, b) => {
+                        const nameA = (a.name || "").toLowerCase();
+                        const nameB = (b.name || "").toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
+                } else {
+                    modelCatalog = [];
+                }
+                renderModelOptions();
+                if (modelCatalog.length > 0) {
+                    const match = modelCatalog.find(model => model.name === selectedModel);
+                    selectedModel = match ? match.name : (modelCatalog[0].name || "");
+                    localStorage.setItem("chat_model", selectedModel);
+                    const modelSelect = document.getElementById('model-select');
+                    modelSelect.value = selectedModel;
+                } else {
+                    selectedModel = "";
+                    const modelSelect = document.getElementById('model-select');
+                    modelSelect.value = "";
+                }
+                renderModelDetails();
+            } catch (e) {
+                console.error(e);
+                const modelSelect = document.getElementById('model-select');
+                modelSelect.innerHTML = '<option value="">Models unavailable</option>';
+                document.getElementById('model-details').innerText = "";
+                selectedModel = "";
+            }
+        }
+
+        async function fetchImageModels() {
+            try {
+                const res = await fetch("https://gen.pollinations.ai/image/models", {
+                    headers: AUTH ? { 'Authorization': `Bearer ${AUTH}` } : {}
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    imageModels = data.slice().sort((a, b) => {
+                        const nameA = (a.name || "").toLowerCase();
+                        const nameB = (b.name || "").toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
+                } else {
+                    imageModels = [];
+                }
+                renderImageModelOptions();
+            } catch (e) {
+                console.error(e);
+                const select = document.getElementById('image-model-select');
+                select.innerHTML = '<option value="">Image models unavailable</option>';
+                imageModels = [];
+            }
+        }
+
+        function renderImageModelOptions() {
+            const select = document.getElementById('image-model-select');
+            select.innerHTML = "";
+            if (imageModels.length === 0) {
+                select.innerHTML = '<option value="">No image models found</option>';
+                return;
+            }
+            imageModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.name || "";
+                option.textContent = model.name || "unknown";
+                select.appendChild(option);
+            });
+            const savedImageModel = localStorage.getItem("image_model");
+            if (savedImageModel && imageModels.find(model => model.name === savedImageModel)) {
+                select.value = savedImageModel;
+            } else {
+                select.value = imageModels[0].name || "";
+                localStorage.setItem("image_model", select.value);
+            }
+            if (select.value) {
+                renderImageModelDetails();
+            }
+        }
+
+        function hydrateSavedSettings() {
+            document.getElementById('config-system').value = configState.systemPrompt;
+            document.getElementById('config-temperature').value = String(configState.temperature);
+            document.getElementById('config-top-p').value = String(configState.topP);
+            document.getElementById('config-max-tokens').value = String(configState.maxTokens);
+            document.getElementById('config-history').checked = configState.historyEnabled;
+            document.getElementById('config-audio').checked = configState.audioEnabled;
+            document.getElementById('config-voice').value = configState.voice;
+
+            const imagePrompt = localStorage.getItem("image_prompt");
+            if (imagePrompt !== null) document.getElementById('image-prompt').value = imagePrompt;
+            const imageWidth = localStorage.getItem("image_width");
+            if (imageWidth !== null) document.getElementById('image-width').value = imageWidth;
+            const imageHeight = localStorage.getItem("image_height");
+            if (imageHeight !== null) document.getElementById('image-height').value = imageHeight;
+            const imageSeed = localStorage.getItem("image_seed");
+            if (imageSeed !== null) document.getElementById('image-seed').value = imageSeed;
+            const imageNegative = localStorage.getItem("image_negative");
+            if (imageNegative !== null) document.getElementById('image-negative').value = imageNegative;
+            const imageQuality = localStorage.getItem("image_quality");
+            if (imageQuality !== null) document.getElementById('image-quality').value = imageQuality;
+            const imageTransparent = localStorage.getItem("image_transparent");
+            if (imageTransparent !== null) document.getElementById('image-transparent').value = imageTransparent;
+            const imageSafe = localStorage.getItem("image_safe");
+            if (imageSafe !== null) document.getElementById('image-safe').value = imageSafe;
+            const imageEnhance = localStorage.getItem("image_enhance");
+            if (imageEnhance !== null) document.getElementById('image-enhance').value = imageEnhance;
+            const imageDuration = localStorage.getItem("image_duration");
+            if (imageDuration !== null) document.getElementById('image-duration').value = imageDuration;
+            const imageAspect = localStorage.getItem("image_aspect");
+            if (imageAspect !== null) document.getElementById('image-aspect').value = imageAspect;
+            const imageAudio = localStorage.getItem("image_audio");
+            if (imageAudio !== null) document.getElementById('image-audio').value = imageAudio;
+            const imageRef = localStorage.getItem("image_ref");
+            if (imageRef !== null) document.getElementById('image-ref').value = imageRef;
+            updateVoiceOptions();
+        }
+
+        function updateVoiceOptions() {
+            const voiceField = document.getElementById('config-voice-field');
+            const voiceSelect = document.getElementById('config-voice');
+            const selected = selectedModel || document.getElementById('model-select').value;
+            const model = modelCatalog.find(item => item.name === selected);
+            const voices = Array.isArray(model?.voices) ? model.voices : [];
+            if (!voices.length) {
+                voiceField.classList.add('hidden');
+                voiceSelect.innerHTML = "";
+                configState.voice = "";
+                localStorage.removeItem("chat_voice");
+                return;
+            }
+            voiceField.classList.remove('hidden');
+            voiceSelect.innerHTML = "";
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice;
+                option.textContent = voice;
+                voiceSelect.appendChild(option);
+            });
+            const saved = localStorage.getItem("chat_voice");
+            if (saved && voices.includes(saved)) {
+                voiceSelect.value = saved;
+                configState.voice = saved;
+            } else {
+                voiceSelect.value = voices[0];
+                configState.voice = voices[0];
+                localStorage.setItem("chat_voice", configState.voice);
+            }
+        }
+
+        function updateChatMediaSupport() {
+            const model = modelCatalog.find(item => item.name === selectedModel);
+            const inputs = Array.isArray(model?.input_modalities) ? model.input_modalities : [];
+            const supportsMedia = inputs.some(mod => mod === "image" || mod === "audio" || mod === "video");
+            const accepts = [];
+            if (inputs.includes("image")) accepts.push("image/*");
+            if (inputs.includes("audio")) accepts.push("audio/*");
+            if (inputs.includes("video")) accepts.push("video/*");
+            const rowEl = document.getElementById('chat-media-row');
+            const inputEl = document.getElementById('chat-media-input');
+            const labelEl = document.getElementById('chat-media-label');
+            if (!supportsMedia) {
+                rowEl.classList.add('hidden');
+                inputEl.value = "";
+                labelEl.innerText = "No media selected";
+                clearChatMedia();
+                return;
+            }
+            rowEl.classList.remove('hidden');
+            inputEl.accept = accepts.join(",");
+            if (!chatMedia) {
+                labelEl.innerText = `Supports: ${accepts.join(", ")}`;
+            }
+        }
+
+        function handleChatMediaSelection(file) {
+            if (!file) {
+                clearChatMedia();
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function() {
+                const dataUrl = String(reader.result || "");
+                chatMedia = {
+                    name: file.name,
+                    type: file.type,
+                    dataUrl
+                };
+                document.getElementById('chat-media-label').innerText = file.name;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearChatMedia() {
+            chatMedia = null;
+            const inputEl = document.getElementById('chat-media-input');
+            const labelEl = document.getElementById('chat-media-label');
+            if (inputEl) inputEl.value = "";
+            if (labelEl) labelEl.innerText = "No media selected";
+        }
+
+        async function fetchProfile() {
+            if (!AUTH) {
+                renderProfile(null);
+                return;
+            }
+            try {
+                const res = await fetch("https://gen.pollinations.ai/account/profile", {
+                    headers: { 'Authorization': `Bearer ${AUTH}` }
+                });
+                const payload = await res.json();
+                if (!res.ok || (payload && payload.success === false)) {
+                    renderProfile({ error: true, message: payload?.error?.message });
+                    return;
+                }
+                renderProfile(payload);
+            } catch (e) {
+                console.error(e);
+                renderProfile({ error: true, message: "Profile unavailable. Check your API key." });
+            }
+        }
+
+        async function fetchBalance() {
+            if (!AUTH) {
+                renderBalance(null);
+                return;
+            }
+            try {
+                const res = await fetch("https://gen.pollinations.ai/account/balance", {
+                    headers: { 'Authorization': `Bearer ${AUTH}` }
+                });
+                const payload = await res.json();
+                if (!res.ok || (payload && payload.success === false)) {
+                    renderBalance({ error: true, message: payload?.error?.message });
+                    return;
+                }
+                renderBalance(payload);
+            } catch (e) {
+                console.error(e);
+                renderBalance({ error: true, message: "Balance unavailable. Check your API key." });
+            }
+        }
+
+        async function fetchUsage() {
+            if (!AUTH) {
+                renderUsage(null);
+                return;
+            }
+            try {
+                const res = await fetch("https://gen.pollinations.ai/account/usage?format=json&limit=100&before=", {
+                    headers: { 'Authorization': `Bearer ${AUTH}` }
+                });
+                const payload = await res.json();
+                if (!res.ok || (payload && payload.success === false)) {
+                    renderUsage({ error: true, message: payload?.error?.message });
+                    return;
+                }
+                renderUsage(payload);
+            } catch (e) {
+                console.error(e);
+                renderUsage({ error: true, message: "Usage unavailable. Check your API key." });
+            }
+        }
+
+        function renderProfile(profile) {
+            const card = document.getElementById('profile-card');
+            if (!profile) {
+                card.classList.add('hidden');
+                card.innerHTML = "";
+                return;
+            }
+            card.classList.remove('hidden');
+            if (profile.error) {
+                const message = profile.message || "Profile unavailable. Check your API key.";
+                card.innerHTML = `<div class="model-desc">${message}</div>`;
+                return;
+            }
+            card.innerHTML = `
+                <div class="model-title">Account</div>
+                <div class="profile-row">
+                    <div class="model-label">Name</div><div>${profile.name || "—"}</div>
+                    <div class="model-label">Email</div><div>${profile.email || "—"}</div>
+                    <div class="model-label">GitHub</div><div>${profile.githubUsername || "—"}</div>
+                    <div class="model-label">Tier</div><div>${profile.tier || "—"}</div>
+                    <div class="model-label">Created</div><div>${profile.createdAt || "—"}</div>
+                </div>
+            `;
+        }
+
+        function renderBalance(balance) {
+            const card = document.getElementById('balance-card');
+            if (!balance) {
+                card.classList.add('hidden');
+                card.innerHTML = "";
+                return;
+            }
+            card.classList.remove('hidden');
+            if (balance.error) {
+                const message = balance.message || "Balance unavailable. Check your API key.";
+                card.innerHTML = `<div class="model-desc">${message}</div>`;
+                return;
+            }
+            currentBalance = typeof balance.balance === "number" ? balance.balance : null;
+            const amount = typeof balance.balance === "number" ? balance.balance.toLocaleString("en-US") : "—";
+            card.innerHTML = `
+                <div class="usage-header">
+                    <div class="model-title">Balance</div>
+                    <button type="button" id="balance-refresh" class="icon-btn" title="Refresh balance">↻</button>
+                </div>
+                <div class="profile-row">
+                    <div class="model-label">Balance</div><div>${amount}</div>
+                </div>
+            `;
+            const refreshBtn = document.getElementById('balance-refresh');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    fetchBalance();
+                });
+            }
+        }
+
+        function renderUsage(usageData) {
+            const card = document.getElementById('usage-card');
+            if (!usageData) {
+                card.classList.add('hidden');
+                card.innerHTML = "";
+                return;
+            }
+            card.classList.remove('hidden');
+            if (usageData.error) {
+                const message = usageData.message || "Usage unavailable. Check your API key.";
+                card.innerHTML = `<div class="model-desc">${message}</div>`;
+                return;
+            }
+            const entries = Array.isArray(usageData.usage) ? usageData.usage : [];
+            if (entries.length === 0) {
+                card.innerHTML = `<div class="model-title">Usage</div><div class="model-desc">No usage found.</div>`;
+                return;
+            }
+            const formatValue = (value) => {
+                if (typeof value === "number" && Number.isFinite(value)) {
+                    return value.toLocaleString("en-US");
+                }
+                return value || "—";
+            };
+            const formatCost = (value) => {
+                if (typeof value === "number" && Number.isFinite(value)) {
+                    return value.toFixed(8);
+                }
+                return value || "—";
+            };
+            const totals = entries.reduce((acc, entry) => {
+                acc.input += Number(entry.input_text_tokens || 0)
+                    + Number(entry.input_cached_tokens || 0)
+                    + Number(entry.input_audio_tokens || 0)
+                    + Number(entry.input_image_tokens || 0);
+                acc.output += Number(entry.output_text_tokens || 0)
+                    + Number(entry.output_reasoning_tokens || 0)
+                    + Number(entry.output_audio_tokens || 0)
+                    + Number(entry.output_image_tokens || 0);
+                acc.cost += Number(entry.cost_usd || 0);
+                return acc;
+            }, { input: 0, output: 0, cost: 0 });
+            const remainingFor = (cost) => {
+                const costNum = Number(cost);
+                if (!Number.isFinite(currentBalance) || currentBalance <= 0 || !Number.isFinite(costNum) || costNum <= 0) {
+                    return "—";
+                }
+                return Math.round(currentBalance / costNum).toLocaleString("en-US");
+            };
+
+            const entryRows = entries.slice(0, 10).map(entry => {
+                const types = [
+                    { label: "Text", input: entry.input_text_tokens, output: entry.output_text_tokens },
+                    { label: "Cached", input: entry.input_cached_tokens, output: null },
+                    { label: "Audio", input: entry.input_audio_tokens, output: entry.output_audio_tokens },
+                    { label: "Image", input: entry.input_image_tokens, output: entry.output_image_tokens },
+                    { label: "Reasoning", input: null, output: entry.output_reasoning_tokens }
+                ];
+                const rows = types
+                    .filter(item => (typeof item.input === "number" && item.input !== 0) || (typeof item.output === "number" && item.output !== 0))
+                    .map(item => `
+                <tr>
+                    <td>${formatValue(entry.timestamp)}</td>
+                    <td>${formatValue(entry.type)}</td>
+                    <td>${formatValue(entry.model)}</td>
+                    <td>${formatValue(entry.api_key)}</td>
+                    <td>${formatValue(entry.api_key_type)}</td>
+                    <td>${item.label}</td>
+                    <td>${typeof item.input === "number" && item.input !== 0 ? formatValue(item.input) : "—"}</td>
+                    <td>${typeof item.output === "number" && item.output !== 0 ? formatValue(item.output) : "—"}</td>
+                    <td>${formatCost(entry.cost_usd)}</td>
+                    <td>${formatValue(entry.response_time_ms)}</td>
+                    <td>${remainingFor(entry.cost_usd)}</td>
+                </tr>
+                    `).join("");
+                return rows || `
+                <tr>
+                    <td>${formatValue(entry.timestamp)}</td>
+                    <td>${formatValue(entry.type)}</td>
+                    <td>${formatValue(entry.model)}</td>
+                    <td>${formatValue(entry.api_key)}</td>
+                    <td>${formatValue(entry.api_key_type)}</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>${formatCost(entry.cost_usd)}</td>
+                    <td>${formatValue(entry.response_time_ms)}</td>
+                    <td>${remainingFor(entry.cost_usd)}</td>
+                </tr>
+                `;
+            }).join("");
+            card.innerHTML = `
+                <div class="usage-header">
+                    <div class="model-title">Usage</div>
+                    <button type="button" id="usage-refresh" class="icon-btn" title="Refresh usage">↻</button>
+                </div>
+                <div class="table-scroll">
+                <table class="usage-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Type</th>
+                            <th>Model</th>
+                            <th>API key</th>
+                            <th>API type</th>
+                            <th>Type</th>
+                            <th>Input</th>
+                            <th>Output</th>
+                            <th>Cost</th>
+                            <th>RT/ms</th>
+                            <th>Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${entryRows}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="6">Totals</th>
+                            <th>${formatValue(totals.input)}</th>
+                            <th>${formatValue(totals.output)}</th>
+                            <th>${formatCost(totals.cost)}</th>
+                            <th>—</th>
+                            <th>—</th>
+                        </tr>
+                    </tfoot>
+                </table>
+                </div>
+            `;
+            const refreshBtn = document.getElementById('usage-refresh');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    fetchUsage();
+                });
+            }
+        }
+
+        function renderModelOptions() {
+            const modelSelect = document.getElementById('model-select');
+            modelSelect.innerHTML = "";
+            if (modelCatalog.length === 0) {
+                modelSelect.innerHTML = '<option value="">No models found</option>';
+                return;
+            }
+            modelCatalog.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.name || "";
+                option.textContent = model.name || "unknown";
+                modelSelect.appendChild(option);
+            });
+            const match = modelCatalog.find(model => model.name === selectedModel);
+            if (match) {
+                modelSelect.value = selectedModel;
+            } else {
+                modelSelect.value = modelCatalog[0].name || "";
+            }
+            selectedModel = modelSelect.value;
+            updateChatMediaSupport();
+            updateVoiceOptions();
+        }
+
+        function renderModelDetails() {
+            const details = document.getElementById('model-details');
+            const model = modelCatalog.find(item => item.name === selectedModel);
+            if (!model) {
+                details.innerText = "";
+                return;
+            }
+
+            const formatNumber = (value) => {
+                if (typeof value !== "number" || !Number.isFinite(value)) return value;
+                if (Math.abs(value) >= 1) {
+                    return value.toLocaleString("en-US");
+                }
+                const fixed = value.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
+                return fixed || "0";
+            };
+
+            const aliases = Array.isArray(model.aliases) && model.aliases.length
+                ? model.aliases.map(alias => `<span class="model-chip">${alias}</span>`).join("")
+                : `<span class="model-chip">None</span>`;
+
+            const inputMods = Array.isArray(model.input_modalities) && model.input_modalities.length
+                ? model.input_modalities.map(mod => `<span class="model-chip">${mod}</span>`).join("")
+                : `<span class="model-chip">None</span>`;
+
+            const outputMods = Array.isArray(model.output_modalities) && model.output_modalities.length
+                ? model.output_modalities.map(mod => `<span class="model-chip">${mod}</span>`).join("")
+                : `<span class="model-chip">None</span>`;
+
+            const voices = Array.isArray(model.voices) && model.voices.length
+                ? model.voices.map(voice => `<span class="model-chip">${voice}</span>`).join("")
+                : "";
+
+            const pricing = model.pricing || {};
+            const pricingLines = Object.keys(pricing).map(key => {
+                const value = pricing[key];
+                const displayValue = typeof value === "number" ? formatNumber(value) : value;
+                return `<div><span class="model-label">${key}:</span> ${displayValue}</div>`;
+            }).join("");
+
+            details.innerHTML = `
+                <div class="model-title">${model.name || "Unknown model"}</div>
+                <div class="model-desc">${model.description || "No description available."}</div>
+                <div class="model-grid">
+                    <div><span class="model-label">Tools:</span> ${model.tools ? "Yes" : "No"}</div>
+                    <div><span class="model-label">Specialized:</span> ${model.is_specialized ? "Yes" : "No"}</div>
+                    <div><span class="model-label">Reasoning:</span> ${model.reasoning ? "Yes" : "No"}</div>
+                    <div><span class="model-label">Currency:</span> ${pricing.currency || "N/A"}</div>
+                </div>
+                ${pricingLines ? `<div class="model-grid">${pricingLines}</div>` : ""}
+                ${voices ? `<div class="model-row"><span class="model-label">Voices:</span> ${voices}</div>` : ""}
+                <div class="model-row"><span class="model-label">Aliases:</span> ${aliases}</div>
+                <div class="model-row"><span class="model-label">Input:</span> ${inputMods}</div>
+                <div class="model-row"><span class="model-label">Output:</span> ${outputMods}</div>
+            `;
+        }
+
+        function renderImageModelDetails() {
+            const details = document.getElementById('image-model-details');
+            const name = document.getElementById('image-model-select').value;
+            const model = imageModels.find(item => item.name === name);
+            if (!model) {
+                details.innerText = "";
+                return;
+            }
+            const description = model.description || "Image model.";
+            const aliases = Array.isArray(model.aliases) && model.aliases.length
+                ? model.aliases.map(alias => `<span class="model-chip">${alias}</span>`).join("")
+                : `<span class="model-chip">None</span>`;
+            const inputMods = Array.isArray(model.input_modalities) && model.input_modalities.length
+                ? model.input_modalities.map(mod => `<span class="model-chip">${mod}</span>`).join("")
+                : `<span class="model-chip">None</span>`;
+            const outputMods = Array.isArray(model.output_modalities) && model.output_modalities.length
+                ? model.output_modalities.map(mod => `<span class="model-chip">${mod}</span>`).join("")
+                : `<span class="model-chip">None</span>`;
+            const pricing = model.pricing || {};
+            const pricingLines = Object.keys(pricing).map(key => {
+                const value = pricing[key];
+                const displayValue = typeof value === "number" ? value.toLocaleString("en-US") : value;
+                return `<div><span class="model-label">${key}:</span> ${displayValue}</div>`;
+            }).join("");
+            details.innerHTML = `
+                <div class="model-title">${model.name || "Unknown model"}</div>
+                <div class="model-desc">${description}</div>
+                ${pricingLines ? `<div class="model-grid">${pricingLines}</div>` : `<div class="model-desc">No pricing data.</div>`}
+                <div class="model-row"><span class="model-label">Aliases:</span> ${aliases}</div>
+                <div class="model-row"><span class="model-label">Input:</span> ${inputMods}</div>
+                <div class="model-row"><span class="model-label">Output:</span> ${outputMods}</div>
+            `;
+        }
+
+        function updateImageModelDetailsVisibility() {
+            const details = document.getElementById('image-model-details');
+            const toggle = document.getElementById('image-model-toggle');
+            if (imageModelDetailsOpen) {
+                details.classList.remove('hidden');
+                toggle.textContent = "Hide model details";
+                renderImageModelDetails();
+            } else {
+                details.classList.add('hidden');
+                toggle.textContent = "Show model details";
+            }
+        }
+
+        async function generateImage() {
+            const output = document.getElementById('image-output');
+            output.innerHTML = "";
+            if (!AUTH) {
+                output.innerHTML = `<div class="model-desc">Add your API key to generate images.</div>`;
+                return;
+            }
+            const model = document.getElementById('image-model-select').value.trim();
+            const prompt = document.getElementById('image-prompt').value.trim();
+            if (!model || !prompt) {
+                output.innerHTML = `<div class="model-desc">Select a model and enter a prompt.</div>`;
+                return;
+            }
+
+            const params = new URLSearchParams();
+            params.set("model", model);
+            if (AUTH) {
+                params.set("key", AUTH);
+            }
+            params.set("width", document.getElementById('image-width').value.trim() || "1024");
+            params.set("height", document.getElementById('image-height').value.trim() || "1024");
+            params.set("seed", document.getElementById('image-seed').value.trim() || "0");
+            params.set("enhance", document.getElementById('image-enhance').value);
+            params.set("negative_prompt", document.getElementById('image-negative').value.trim() || "worst quality, blurry");
+            params.set("safe", document.getElementById('image-safe').value);
+            params.set("quality", document.getElementById('image-quality').value);
+            params.set("image", document.getElementById('image-ref').value.trim());
+            params.set("transparent", document.getElementById('image-transparent').value);
+            params.set("duration", document.getElementById('image-duration').value.trim() || "1");
+            params.set("aspectRatio", document.getElementById('image-aspect').value);
+            params.set("audio", document.getElementById('image-audio').value);
+
+            const url = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?${params.toString()}`;
+            try {
+                output.innerHTML = `<div class="model-desc">Generating...</div>`;
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${AUTH}` }
+                });
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    output.innerHTML = formatApiError(errorText);
+                    return;
+                }
+                const blob = await res.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const isVideo = ["veo", "seedance", "seedance-pro"].includes(model);
+                if (isVideo) {
+                    output.innerHTML = `<video controls src="${objectUrl}"></video>`;
+                } else {
+                    output.innerHTML = `<img src="${objectUrl}" alt="Generated image">`;
+                }
+            } catch (e) {
+                console.error(e);
+                output.innerHTML = `<div class="model-desc">Image generation failed.</div>`;
+            }
+        }
+
+        function formatApiError(errorText) {
+            let fallback = "Image generation failed.";
+            let message = fallback;
+            let details = [];
+            try {
+                const payload = JSON.parse(errorText);
+                if (payload?.error?.message) {
+                    message = payload.error.message;
+                }
+                if (payload?.error?.details) {
+                    details = payload.error.details;
+                }
+            } catch (parseError) {
+                if (errorText) message = errorText;
+            }
+
+            let parsedInner = null;
+            if (typeof message === "string" && message.trim().startsWith("{")) {
+                try {
+                    parsedInner = JSON.parse(message);
+                    message = parsedInner.message || parsedInner.error || message;
+                    if (Array.isArray(parsedInner.details)) {
+                        details = parsedInner.details;
+                    }
+                } catch (innerError) {
+                    parsedInner = null;
+                }
+            }
+
+            const detailList = Array.isArray(details) && details.length
+                ? `<ul class="model-desc">${details.map(item => `<li>${item.message || "Invalid parameter"}</li>`).join("")}</ul>`
+                : "";
+
+            return `
+                <div class="model-desc">${message || fallback}</div>
+                ${detailList}
+            `;
+        }
+
+        function updateModelDetailsVisibility() {
+            const details = document.getElementById('model-details');
+            const toggle = document.getElementById('model-toggle');
+            if (modelDetailsOpen) {
+                details.classList.remove('hidden');
+                toggle.textContent = "Hide model details";
+            } else {
+                details.classList.add('hidden');
+                toggle.textContent = "Show model details";
+            }
+        }
+
+        function updateConfigVisibility() {
+            const section = document.getElementById('config-section');
+            const panel = document.getElementById('config-panel');
+            const toggle = document.getElementById('config-toggle');
+            if (state.mode !== "chat") {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+            if (configState.open) {
+                panel.classList.remove('hidden');
+                toggle.textContent = "Hide config";
+            } else {
+                panel.classList.add('hidden');
+                toggle.textContent = "Show config";
+            }
+        }
+
+        function updateModeUI() {
+            document.getElementById('mode-socrates').classList.toggle('active', state.mode === "socrates");
+            document.getElementById('mode-chat').classList.toggle('active', state.mode === "chat");
+            const progressRow = document.querySelector('.progress-row');
+            const levelButtons = document.getElementById('level-buttons');
+            const topicTitle = document.getElementById('topic-title');
+            const historyRow = document.getElementById('chat-history-row');
+            const mediaRow = document.getElementById('chat-media-row');
+            if (state.mode === "chat") {
+                progressRow.classList.add('hidden');
+                levelButtons.classList.add('hidden');
+                topicTitle.classList.add('hidden');
+                document.getElementById('tutor-box').innerText = "Chat mode.";
+                document.getElementById('user-input').placeholder = "Type your message...";
+                historyRow.classList.remove('hidden');
+                mediaRow.classList.remove('hidden');
+                updateChatMediaSupport();
+            } else {
+                progressRow.classList.remove('hidden');
+                levelButtons.classList.remove('hidden');
+                if (state.topic) {
+                    topicTitle.classList.remove('hidden');
+                }
+                document.getElementById('tutor-box').innerText = "What topic are we mastering today?";
+                document.getElementById('user-input').placeholder = "Enter a topic...";
+                historyRow.classList.add('hidden');
+                mediaRow.classList.add('hidden');
+            }
+            updateConfigVisibility();
+        }
+
+        function switchMode(mode) {
+            if (state.mode === mode) return;
+            state.mode = mode;
+            memory = [];
+            state.topic = "";
+            state.nodeIndex = 0;
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('shortcut-buttons').classList.add('hidden');
+            updateModeUI();
+        }
+
+
+        function ensureChatSystemPrompt() {
+            const prompt = configState.systemPrompt.trim();
+            const existingIndex = memory.findIndex(item => item.role === "system");
+            if (prompt) {
+                if (existingIndex >= 0) {
+                    memory[existingIndex].content = prompt;
+                } else {
+                    memory.unshift({ role: "system", content: prompt });
+                }
+            } else if (existingIndex >= 0) {
+                memory.splice(existingIndex, 1);
+            }
+        }
+
+        function startPollinationsAuth() {
+            const redirect = document.getElementById('auth-redirect').value.trim() || location.href.split('#')[0];
+            const permissions = document.getElementById('auth-permissions').value.trim();
+            const models = document.getElementById('auth-models').value.trim();
+            const expiry = document.getElementById('auth-expiry').value.trim();
+            const budget = document.getElementById('auth-budget').value.trim();
+            const params = new URLSearchParams();
+            params.set('redirect_url', redirect);
+            if (permissions) params.set('permissions', permissions);
+            if (models) params.set('models', models);
+            if (expiry) params.set('expiry', expiry);
+            if (budget) params.set('budget', budget);
+            window.location.href = `https://enter.pollinations.ai/authorize?${params.toString()}`;
+        }
+
+        function buildRequestBody() {
+            if (state.mode === "chat") {
+                ensureChatSystemPrompt();
+            }
+            const body = {
+                model: selectedModel || "nova-fast",
+                messages: memory,
+                json: state.mode === "socrates"
+            };
+            if (state.mode !== "socrates" && !configState.audioEnabled) {
+                body.stream = true;
+            }
+            if (state.mode === "chat") {
+                if (Number.isFinite(configState.temperature)) body.temperature = configState.temperature;
+                if (Number.isFinite(configState.topP)) body.top_p = configState.topP;
+                if (Number.isFinite(configState.maxTokens)) body.max_tokens = configState.maxTokens;
+                if (configState.voice) body.voice = configState.voice;
+                if (configState.audioEnabled) {
+                    body.modalities = ["text", "audio"];
+                    body.audio = {
+                        voice: configState.voice || "alloy",
+                        format: "wav"
+                    };
+                }
+            }
+            return body;
+        }
+
+        async function handleTurn(shortcutResponse) {
+            let val;
+            if (shortcutResponse) {
+                val = shortcutResponse;
+            } else {
+                const input = document.getElementById('user-input');
+                val = input.value.trim();
+                if(!val) return;
+                // Clear input immediately after getting the value
+                input.value = "";
+            }
+
+            if (state.mode === "chat") {
+                await runTurn(val);
+                return;
+            }
+
+            if(!state.topic) {
+                state.topic = val;
+                initSystem();
+                const topicTitle = document.getElementById('topic-title');
+                topicTitle.innerText = `${state.topic} • ${state.level}`;
+                topicTitle.classList.remove('hidden');
+                const levelButtons = document.getElementById('level-buttons');
+                if (levelButtons) {
+                    levelButtons.classList.add('hidden');
+                }
+                const input = document.getElementById('user-input');
+                if (input) {
+                    input.placeholder = "";
+                    input.blur();
+                }
+                document.getElementById('tutor-box').innerText = "Getting Ready...";
+                await runTurn(`I want to learn ${val} at a ${state.level} level. Start with the first foundational concept.`);
+            } else {
+                await runTurn(val);
+            }
+
+        }
+
+        function initSystem() {
+            memory.push({
+                role: "system",
+                content: `You are a Socratic Master Tutor.
+                OBJECTIVE: Move the user through 5 stages: Foundations, Mechanics, Dynamics, Synthesis, Mastery.
+                
+                BEHAVIOR RULES:
+                1. If user says "I don't know" or "tell me": Stop questioning. Give a CLEAR, 3-sentence explanation of the concept, then ask a simple confirmation question.
+                2. If user answers correctly: Praise them, mark the node as complete, and move to the NEXT stage.
+                3. If user is wrong: Give a hint.
+                
+                JSON SCHEMA:
+                {
+                  "speech": "Your response to the user",
+                  "current_node": 0-4,
+                  "node_complete": true|false,
+                  "pedagogical_note": "Internal reason for this response"
+                }`
+            });
+        }
+
+        async function runTurn(msg) {
+            if (state.mode === "chat" && !configState.historyEnabled) {
+                memory = [];
+            }
+            const content = state.mode === "chat" ? buildChatContent(msg) : msg;
+            memory.push({ role: "user", content });
+
+            // Show spinner
+            document.getElementById('spinner').style.display = 'block';
+
+            try {
+                const res = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(buildRequestBody())
+                });
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    updateChatError(formatApiError(errorText));
+                    return;
+                }
+
+                const expectJson = state.mode === "socrates";
+                const shouldStream = state.mode !== "socrates" && !configState.audioEnabled;
+                const reader = shouldStream && res.body && res.body.getReader ? res.body.getReader() : null;
+                let assistantText = "";
+                let usage = null;
+                let audioData = "";
+                let audioFormat = "wav";
+                let audioUrl = "";
+
+                if (!reader) {
+                const data = await res.json();
+                    const content = data?.choices?.[0]?.message?.content ?? "";
+                    assistantText = content;
+                    usage = data.usage || null;
+                    if (state.mode === "chat") {
+                        const audio = data?.choices?.[0]?.message?.audio;
+                        if (audio?.data) {
+                            audioData = audio.data;
+                            audioFormat = audio.format || audioFormat;
+                        }
+                        if (audio?.url) {
+                            audioUrl = audio.url;
+                        }
+                    }
+                } else {
+                    const decoder = new TextDecoder();
+                    let buffer = "";
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || "";
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (!trimmed.startsWith("data:")) continue;
+                            const payload = trimmed.slice(5).trim();
+                            if (payload === "[DONE]") {
+                                buffer = "";
+                                break;
+                            }
+                            try {
+                                const chunk = JSON.parse(payload);
+                                if (chunk.usage) {
+                                    usage = chunk.usage;
+                                }
+                                const delta = chunk?.choices?.[0]?.delta;
+                                const piece = delta?.content;
+                                if (typeof piece === "string") {
+                                    assistantText += piece;
+                                    updateStreamingUI(assistantText, expectJson);
+                                }
+                                if (state.mode === "chat" && delta?.audio) {
+                                    if (delta.audio.data) {
+                                        audioData += delta.audio.data;
+                                    }
+                                    if (delta.audio.format) {
+                                        audioFormat = delta.audio.format;
+                                    }
+                                    if (delta.audio.url) {
+                                        audioUrl = delta.audio.url;
+                                    }
+                                }
+                            } catch (err) {
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                let assistantContent = assistantText;
+                let completionText = assistantText;
+                if (expectJson) {
+                    try {
+                        const cleaned = assistantText.replace(/```json|```/g, '').trim();
+                        const turn = JSON.parse(cleaned);
+                updateUI(turn);
+                        if (state.mode === "chat") {
+                            document.getElementById('feedback').innerText = cleaned;
+                        }
+                        assistantContent = JSON.stringify(turn);
+                        completionText = turn && typeof turn.speech === "string" ? turn.speech : assistantText;
+                    } catch (parseError) {
+                        updateChatUI(assistantText);
+                        assistantContent = assistantText;
+                        completionText = assistantText;
+                    }
+                } else {
+                    updateChatUI(assistantText);
+                }
+                if (state.mode === "chat") {
+                    if (audioUrl || audioData) {
+                        setChatAudio({
+                            url: audioUrl || "",
+                            data: audioData || "",
+                            format: audioFormat
+                        });
+                    } else {
+                        setChatAudio(null);
+                    }
+                }
+
+                if (state.mode !== "chat" || configState.historyEnabled) {
+                    memory.push({ role: "assistant", content: assistantContent });
+                } else {
+                    memory = [];
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('tutor-box').innerText = "Press Continue to continue.";
+            } finally {
+                // Hide spinner
+                document.getElementById('spinner').style.display = 'none';
+            }
+        }
+
+        function updateUI(turn) {
+            document.getElementById('tutor-box').innerText = turn.speech;
+            // Don't show the specific feedback text about foundational concepts
+            const feedbackText = turn.pedagogical_note === "Introducing foundational concepts first ensures that the learner understands the basic posture and orientation before progressing further." ? "" : turn.pedagogical_note;
+            document.getElementById('feedback').innerText = feedbackText;
+
+            const input = document.getElementById('user-input');
+            if (input && state.topic) {
+                input.placeholder = "Use buttons for quick replies, or answer here...";
+            }
+
+            // Show shortcut buttons after the first response
+            if (state.topic && document.getElementById('shortcut-buttons').classList.contains('hidden')) {
+                document.getElementById('shortcut-buttons').classList.remove('hidden');
+            }
+            
+            // Handle node progression
+            state.nodeIndex = turn.current_node;
+            for(let i=0; i<5; i++) {
+                const n = document.getElementById(`n${i}`);
+                const l = document.getElementById(`l${i}`);
+                n.className = "node z-10";
+                l.className = "node-label";
+
+                if (i < state.nodeIndex) n.classList.add('node-complete');
+                if (i === state.nodeIndex) {
+                    n.classList.add('node-active');
+                    l.classList.add('active-label');
+                }
+            }
+        }
+
+        function updateChatUI(text) {
+            document.getElementById('tutor-box').innerText = text || "";
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('shortcut-buttons').classList.add('hidden');
+            const input = document.getElementById('user-input');
+            if (input) {
+                input.placeholder = "Type your message...";
+            }
+            setChatAudio(null);
+        }
+
+        function updateChatError(html) {
+            const tutor = document.getElementById('tutor-box');
+            tutor.innerHTML = html;
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('shortcut-buttons').classList.add('hidden');
+            const input = document.getElementById('user-input');
+            if (input) {
+                input.placeholder = "Type your message...";
+            }
+            setChatAudio(null);
+        }
+
+        function updateStreamingUI(text, expectJson) {
+            if (expectJson) {
+                document.getElementById('tutor-box').innerText = text || "";
+            } else {
+                updateChatUI(text);
+            }
+        }
+
+        function buildChatContent(text) {
+            if (!chatMedia) {
+                return text;
+            }
+            const content = [];
+            if (text) {
+                content.push({ type: "text", text });
+            }
+            const mime = chatMedia.type || "";
+            if (mime.startsWith("image/")) {
+                content.push({ type: "image_url", image_url: { url: chatMedia.dataUrl } });
+            } else if (mime.startsWith("audio/")) {
+                const base64 = chatMedia.dataUrl.split(",")[1] || "";
+                const format = mime.split("/")[1] || "wav";
+                content.push({ type: "input_audio", input_audio: { data: base64, format } });
+            } else if (mime.startsWith("video/")) {
+                content.push({ type: "input_video", video_url: { url: chatMedia.dataUrl } });
+            }
+            return content.length ? content : text;
+        }
+
+        function setChatAudio(audio) {
+            const container = document.getElementById('chat-audio');
+            if (!container) return;
+            if (!audio || (!audio.url && !audio.data)) {
+                container.innerHTML = "";
+                container.classList.add('hidden');
+                return;
+            }
+            const format = audio.format || "wav";
+            const src = audio.url ? audio.url : `data:audio/${format};base64,${audio.data}`;
+            container.innerHTML = `<audio controls src="${src}"></audio>`;
+            container.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
