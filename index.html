@@ -58,6 +58,9 @@
         .media-output { display: grid; gap: 12px; }
         .media-output img, .media-output video { max-width: 100%; border-radius: 6px; background: #202124; }
         .media-output audio { width: 100%; }
+        .chat-links { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+        .chat-links a { color: #8ab4f8; text-decoration: none; word-break: break-all; }
+        .chat-links a:hover { text-decoration: underline; }
         .spinner { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border: 2px solid #5f6368; border-top: 2px solid #8ab4f8; border-radius: 50%; animation: spin 1s linear infinite; z-index: 10; }
         @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
     </style>
@@ -257,6 +260,7 @@
                 What topic are we mastering today?
             </div>
             <div id="chat-audio" class="media-output hidden"></div>
+            <div id="chat-links" class="chat-links hidden"></div>
 
             <div class="input-area">
                 <div>
@@ -850,17 +854,27 @@
                 return value || "—";
             };
             const totals = entries.reduce((acc, entry) => {
-                acc.input += Number(entry.input_text_tokens || 0)
-                    + Number(entry.input_cached_tokens || 0)
-                    + Number(entry.input_audio_tokens || 0)
-                    + Number(entry.input_image_tokens || 0);
-                acc.output += Number(entry.output_text_tokens || 0)
-                    + Number(entry.output_reasoning_tokens || 0)
-                    + Number(entry.output_audio_tokens || 0)
-                    + Number(entry.output_image_tokens || 0);
+                acc.input_text_tokens += Number(entry.input_text_tokens || 0);
+                acc.input_cached_tokens += Number(entry.input_cached_tokens || 0);
+                acc.input_audio_tokens += Number(entry.input_audio_tokens || 0);
+                acc.input_image_tokens += Number(entry.input_image_tokens || 0);
+                acc.output_text_tokens += Number(entry.output_text_tokens || 0);
+                acc.output_reasoning_tokens += Number(entry.output_reasoning_tokens || 0);
+                acc.output_audio_tokens += Number(entry.output_audio_tokens || 0);
+                acc.output_image_tokens += Number(entry.output_image_tokens || 0);
                 acc.cost += Number(entry.cost_usd || 0);
                 return acc;
-            }, { input: 0, output: 0, cost: 0 });
+            }, { 
+                input_text_tokens: 0,
+                input_cached_tokens: 0,
+                input_audio_tokens: 0,
+                input_image_tokens: 0,
+                output_text_tokens: 0,
+                output_reasoning_tokens: 0,
+                output_audio_tokens: 0,
+                output_image_tokens: 0,
+                cost: 0
+            });
             const remainingFor = (cost) => {
                 const costNum = Number(cost);
                 if (!Number.isFinite(currentBalance) || currentBalance <= 0 || !Number.isFinite(costNum) || costNum <= 0) {
@@ -869,47 +883,27 @@
                 return Math.round(currentBalance / costNum).toLocaleString("en-US");
             };
 
-            const entryRows = entries.slice(0, 10).map(entry => {
-                const types = [
-                    { label: "Text", input: entry.input_text_tokens, output: entry.output_text_tokens },
-                    { label: "Cached", input: entry.input_cached_tokens, output: null },
-                    { label: "Audio", input: entry.input_audio_tokens, output: entry.output_audio_tokens },
-                    { label: "Image", input: entry.input_image_tokens, output: entry.output_image_tokens },
-                    { label: "Reasoning", input: null, output: entry.output_reasoning_tokens }
-                ];
-                const rows = types
-                    .filter(item => (typeof item.input === "number" && item.input !== 0) || (typeof item.output === "number" && item.output !== 0))
-                    .map(item => `
+            const entryRows = entries.slice(0, 10).map(entry => `
                 <tr>
                     <td>${formatValue(entry.timestamp)}</td>
                     <td>${formatValue(entry.type)}</td>
                     <td>${formatValue(entry.model)}</td>
                     <td>${formatValue(entry.api_key)}</td>
                     <td>${formatValue(entry.api_key_type)}</td>
-                    <td>${item.label}</td>
-                    <td>${typeof item.input === "number" && item.input !== 0 ? formatValue(item.input) : "—"}</td>
-                    <td>${typeof item.output === "number" && item.output !== 0 ? formatValue(item.output) : "—"}</td>
+                    <td>${formatValue(entry.meter_source)}</td>
+                    <td>${formatValue(entry.input_text_tokens)}</td>
+                    <td>${formatValue(entry.input_cached_tokens)}</td>
+                    <td>${formatValue(entry.input_audio_tokens)}</td>
+                    <td>${formatValue(entry.input_image_tokens)}</td>
+                    <td>${formatValue(entry.output_text_tokens)}</td>
+                    <td>${formatValue(entry.output_reasoning_tokens)}</td>
+                    <td>${formatValue(entry.output_audio_tokens)}</td>
+                    <td>${formatValue(entry.output_image_tokens)}</td>
                     <td>${formatCost(entry.cost_usd)}</td>
                     <td>${formatValue(entry.response_time_ms)}</td>
                     <td>${remainingFor(entry.cost_usd)}</td>
                 </tr>
-                    `).join("");
-                return rows || `
-                <tr>
-                    <td>${formatValue(entry.timestamp)}</td>
-                    <td>${formatValue(entry.type)}</td>
-                    <td>${formatValue(entry.model)}</td>
-                    <td>${formatValue(entry.api_key)}</td>
-                    <td>${formatValue(entry.api_key_type)}</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>${formatCost(entry.cost_usd)}</td>
-                    <td>${formatValue(entry.response_time_ms)}</td>
-                    <td>${remainingFor(entry.cost_usd)}</td>
-                </tr>
-                `;
-            }).join("");
+            `).join("");
             card.innerHTML = `
                 <div class="usage-header">
                     <div class="model-title">Usage</div>
@@ -924,9 +918,15 @@
                             <th>Model</th>
                             <th>API key</th>
                             <th>API type</th>
-                            <th>Type</th>
-                            <th>Input</th>
-                            <th>Output</th>
+                            <th>Meter</th>
+                            <th>Input text</th>
+                            <th>Input cached</th>
+                            <th>Input audio</th>
+                            <th>Input image</th>
+                            <th>Output text</th>
+                            <th>Output reasoning</th>
+                            <th>Output audio</th>
+                            <th>Output image</th>
                             <th>Cost</th>
                             <th>RT/ms</th>
                             <th>Remaining</th>
@@ -938,8 +938,14 @@
                     <tfoot>
                         <tr>
                             <th colspan="6">Totals</th>
-                            <th>${formatValue(totals.input)}</th>
-                            <th>${formatValue(totals.output)}</th>
+                            <th>${formatValue(totals.input_text_tokens)}</th>
+                            <th>${formatValue(totals.input_cached_tokens)}</th>
+                            <th>${formatValue(totals.input_audio_tokens)}</th>
+                            <th>${formatValue(totals.input_image_tokens)}</th>
+                            <th>${formatValue(totals.output_text_tokens)}</th>
+                            <th>${formatValue(totals.output_reasoning_tokens)}</th>
+                            <th>${formatValue(totals.output_audio_tokens)}</th>
+                            <th>${formatValue(totals.output_image_tokens)}</th>
                             <th>${formatCost(totals.cost)}</th>
                             <th>—</th>
                             <th>—</th>
@@ -1398,6 +1404,8 @@
                 const reader = shouldStream && res.body && res.body.getReader ? res.body.getReader() : null;
                 let assistantText = "";
                 let usage = null;
+                let citations = [];
+                let groundingUrls = [];
                 let audioData = "";
                 let audioFormat = "wav";
                 let audioUrl = "";
@@ -1407,6 +1415,11 @@
                     const content = data?.choices?.[0]?.message?.content ?? "";
                     assistantText = content;
                     usage = data.usage || null;
+                    const messageCitations = data?.choices?.[0]?.message?.citations || data?.citations || [];
+                    if (Array.isArray(messageCitations)) {
+                        citations = messageCitations;
+                    }
+                    groundingUrls = groundingUrls.concat(extractGroundingUrls(data));
                     if (state.mode === "chat") {
                         const audio = data?.choices?.[0]?.message?.audio;
                         if (audio?.data) {
@@ -1445,6 +1458,11 @@
                                     assistantText += piece;
                                     updateStreamingUI(assistantText, expectJson);
                                 }
+                                const deltaCitations = chunk?.choices?.[0]?.delta?.citations || chunk?.citations || [];
+                                if (Array.isArray(deltaCitations) && deltaCitations.length) {
+                                    citations = citations.concat(deltaCitations);
+                                }
+                                groundingUrls = groundingUrls.concat(extractGroundingUrls(chunk));
                                 if (state.mode === "chat" && delta?.audio) {
                                     if (delta.audio.data) {
                                         audioData += delta.audio.data;
@@ -1481,7 +1499,7 @@
                         completionText = assistantText;
                     }
                 } else {
-                    updateChatUI(assistantText);
+                    updateChatUI(assistantText, citations, groundingUrls);
                 }
                 if (state.mode === "chat") {
                     if (audioUrl || audioData) {
@@ -1541,7 +1559,7 @@
             }
         }
 
-        function updateChatUI(text) {
+        function updateChatUI(text, citations = [], groundingUrls = []) {
             document.getElementById('tutor-box').innerText = text || "";
             document.getElementById('feedback').innerText = "";
             document.getElementById('shortcut-buttons').classList.add('hidden');
@@ -1550,6 +1568,7 @@
                 input.placeholder = "Type your message...";
             }
             setChatAudio(null);
+            renderChatLinks(text || "", citations, groundingUrls);
         }
 
         function updateChatError(html) {
@@ -1562,6 +1581,7 @@
                 input.placeholder = "Type your message...";
             }
             setChatAudio(null);
+            renderChatLinks("");
         }
 
         function updateStreamingUI(text, expectJson) {
@@ -1605,6 +1625,39 @@
             const src = audio.url ? audio.url : `data:audio/${format};base64,${audio.data}`;
             container.innerHTML = `<audio controls src="${src}"></audio>`;
             container.classList.remove('hidden');
+        }
+
+        function renderChatLinks(text, citations = [], groundingUrls = []) {
+            const linksEl = document.getElementById('chat-links');
+            if (!linksEl) return;
+            const textUrls = (text.match(/https?:\/\/[^\s)]+/g) || []).map(url => url.replace(/[.,;!?]+$/, ""));
+            const citationUrls = citations
+                .map(cite => (typeof cite === "string" ? cite : cite?.url))
+                .filter(Boolean);
+            const unique = Array.from(new Set([...textUrls, ...citationUrls, ...groundingUrls]));
+            if (!unique.length) {
+                linksEl.innerHTML = "";
+                linksEl.classList.add('hidden');
+                return;
+            }
+            linksEl.innerHTML = unique.map(url => `<div><a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a></div>`).join("");
+            linksEl.classList.remove('hidden');
+        }
+
+        function extractGroundingUrls(payload) {
+            const urls = [];
+            const chunks = payload?.choices?.[0]?.groundingMetadata?.groundingChunks
+                || payload?.choices?.[0]?.groundingChunks
+                || payload?.groundingMetadata?.groundingChunks
+                || payload?.groundingChunks
+                || [];
+            if (Array.isArray(chunks)) {
+                chunks.forEach(chunk => {
+                    const uri = chunk?.web?.uri;
+                    if (uri) urls.push(uri);
+                });
+            }
+            return urls;
         }
     </script>
 </body>
