@@ -37,8 +37,10 @@
         .config-panel { display: grid; gap: 8px; }
         .config-field { display: flex; flex-direction: column; gap: 4px; }
         .config-label { font-size: 12px; color: #9aa0a6; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .config-input { padding: 6px 12px; border-radius: 4px; border: 1px solid #5f6368; background: #202124; color: #e8eaed; font-family: inherit; font-size: 14px; }
         .config-input[type="number"] { width: 140px; }
+        #usage-limit { width: 72px; box-sizing: border-box; padding-left: 8px; padding-right: 8px; }
         .config-checkbox { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9aa0a6; }
         .profile-row { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 12px; color: #e8eaed; word-break: break-word; }
         .usage-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #e8eaed; }
@@ -48,12 +50,19 @@
         .table-scroll::-webkit-scrollbar-thumb { background: #8ab4f8; border-radius: 3px; }
         .table-scroll::-webkit-scrollbar-thumb:hover { background: #9bb5f9; }
         .usage-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .icon-btn { border: 1px solid #5f6368; background: #303134; color: #e8eaed; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+        .icon-btn { border: 1px solid #5f6368; background: #303134; color: #e8eaed; border-radius: 4px; padding: 0; cursor: pointer; position: relative; width: 28px; height: 24px; line-height: 1; }
+        .icon-btn .icon-spin { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+        .icon-btn.spin .icon-spin { animation: spin-icon 1s linear infinite; }
         .usage-table th, .usage-table td { border-top: 1px solid #5f6368; padding: 6px 8px; text-align: left; vertical-align: top; }
         .usage-table thead th { color: #9aa0a6; font-weight: 600; border-top: none; }
         .buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
         .btn { padding: 6px 12px; border-radius: 4px; border: 1px solid #5f6368; background: #303134; color: #e8eaed; font-weight: 400; cursor: pointer; font-family: inherit; font-size: 14px; line-height: normal; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .feedback { text-align: center; font-size: 12px; color: #9aa0a6; font-style: italic; }
+        .usage-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        #usage-card { width: 100%; box-sizing: border-box; }
+        #usage-card .table-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+        #usage-card .usage-table { width: max-content; min-width: 100%; }
         .hidden { display: none; }
         .media-output { display: grid; gap: 12px; }
         .media-output img, .media-output video { max-width: 100%; border-radius: 6px; background: #202124; }
@@ -63,6 +72,7 @@
         .chat-links a:hover { text-decoration: underline; }
         .spinner { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border: 2px solid #5f6368; border-top: 2px solid #8ab4f8; border-radius: 50%; animation: spin 1s linear infinite; z-index: 10; }
         @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+        @keyframes spin-icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="page">
@@ -305,6 +315,11 @@
         let currentBalance = null;
         let imageModelDetailsOpen = false;
         let chatMedia = null;
+        let usagePage = 1;
+        const usagePageSize = 10;
+        let usageLimit = Number(localStorage.getItem("usage_limit")) || 100;
+        if (!Number.isFinite(usageLimit) || usageLimit < 1) usageLimit = 100;
+        if (usageLimit > 50000) usageLimit = 50000;
         let configState = {
             systemPrompt: localStorage.getItem("chat_system_prompt") || "",
             temperature: Number(localStorage.getItem("chat_temperature")) || 0.7,
@@ -729,6 +744,11 @@
                 renderBalance(null);
                 return;
             }
+            const refreshBtn = document.getElementById('balance-refresh');
+            if (refreshBtn) {
+                refreshBtn.classList.add('spin');
+                refreshBtn.disabled = true;
+            }
             try {
                 const res = await fetch("https://gen.pollinations.ai/account/balance", {
                     headers: { 'Authorization': `Bearer ${AUTH}` }
@@ -742,6 +762,11 @@
             } catch (e) {
                 console.error(e);
                 renderBalance({ error: true, message: "Balance unavailable. Check your API key." });
+            } finally {
+                if (refreshBtn) {
+                    refreshBtn.classList.remove('spin');
+                    refreshBtn.disabled = false;
+                }
             }
         }
 
@@ -750,8 +775,13 @@
                 renderUsage(null);
                 return;
             }
+            const refreshBtn = document.getElementById('usage-refresh');
+            if (refreshBtn) {
+                refreshBtn.classList.add('spin');
+                refreshBtn.disabled = true;
+            }
             try {
-                const res = await fetch("https://gen.pollinations.ai/account/usage?format=json&limit=100&before=", {
+                const res = await fetch(`https://gen.pollinations.ai/account/usage?format=json&limit=${usageLimit}&before=`, {
                     headers: { 'Authorization': `Bearer ${AUTH}` }
                 });
                 const payload = await res.json();
@@ -759,10 +789,55 @@
                     renderUsage({ error: true, message: payload?.error?.message });
                     return;
                 }
+                usagePage = 1;
                 renderUsage(payload);
             } catch (e) {
                 console.error(e);
                 renderUsage({ error: true, message: "Usage unavailable. Check your API key." });
+            } finally {
+                if (refreshBtn) {
+                    refreshBtn.classList.remove('spin');
+                    refreshBtn.disabled = false;
+                }
+            }
+        }
+
+        async function downloadUsageCSV() {
+            if (!AUTH) {
+                return;
+            }
+            const button = document.getElementById('usage-download');
+            if (button) button.disabled = true;
+            try {
+                const res = await fetch(`https://gen.pollinations.ai/account/usage?format=csv&limit=${usageLimit}&before=`, {
+                    headers: { 'Authorization': `Bearer ${AUTH}` }
+                });
+                if (!res.ok) {
+                    let message = "Usage CSV unavailable. Check your API key.";
+                    try {
+                        const payload = await res.json();
+                        message = payload?.error?.message || message;
+                    } catch (err) {
+                        // ignore json parse
+                    }
+                    renderUsage({ error: true, message });
+                    return;
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+                link.href = url;
+                link.download = `usage-${stamp}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error(e);
+                renderUsage({ error: true, message: "Usage CSV unavailable. Check your API key." });
+            } finally {
+                if (button) button.disabled = false;
             }
         }
 
@@ -809,7 +884,7 @@
             card.innerHTML = `
                 <div class="usage-header">
                     <div class="model-title">Balance</div>
-                    <button type="button" id="balance-refresh" class="icon-btn" title="Refresh balance">↻</button>
+                    <button type="button" id="balance-refresh" class="icon-btn" title="Refresh balance"><span class="icon-spin">↻</span></button>
                 </div>
                 <div class="profile-row">
                     <div class="model-label">Balance</div><div>${amount}</div>
@@ -831,16 +906,64 @@
                 return;
             }
             card.classList.remove('hidden');
+            const headerHtml = `
+                <div class="usage-header">
+                    <div class="model-title">Usage</div>
+                    <div class="row">
+                        <label for="usage-limit" class="config-label">Limit</label>
+                        <input id="usage-limit" type="number" min="1" max="50000" class="config-input" value="${usageLimit}">
+                        <button type="button" id="usage-download" class="btn" title="Download usage CSV">Download</button>
+                        <button type="button" id="usage-refresh" class="icon-btn" title="Refresh usage"><span class="icon-spin">↻</span></button>
+                    </div>
+                </div>
+            `;
             if (usageData.error) {
                 const message = usageData.message || "Usage unavailable. Check your API key.";
-                card.innerHTML = `<div class="model-desc">${message}</div>`;
+                card.innerHTML = `${headerHtml}<div class="model-desc">${message}</div>`;
+                const refreshBtn = document.getElementById('usage-refresh');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', function() {
+                        fetchUsage();
+                    });
+                }
+                const limitInput = document.getElementById('usage-limit');
+                if (limitInput) {
+                    limitInput.addEventListener('change', function() {
+                        const next = Number(limitInput.value);
+                        if (!Number.isFinite(next)) return;
+                        usageLimit = Math.min(50000, Math.max(1, Math.round(next)));
+                        limitInput.value = usageLimit;
+                        localStorage.setItem("usage_limit", String(usageLimit));
+                        fetchUsage();
+                    });
+                }
                 return;
             }
             const entries = Array.isArray(usageData.usage) ? usageData.usage : [];
             if (entries.length === 0) {
-                card.innerHTML = `<div class="model-title">Usage</div><div class="model-desc">No usage found.</div>`;
+                card.innerHTML = `${headerHtml}<div class="model-desc">No usage found.</div>`;
+                const refreshBtn = document.getElementById('usage-refresh');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', function() {
+                        fetchUsage();
+                    });
+                }
+                const limitInput = document.getElementById('usage-limit');
+                if (limitInput) {
+                    limitInput.addEventListener('change', function() {
+                        const next = Number(limitInput.value);
+                        if (!Number.isFinite(next)) return;
+                        usageLimit = Math.min(50000, Math.max(1, Math.round(next)));
+                        limitInput.value = usageLimit;
+                        localStorage.setItem("usage_limit", String(usageLimit));
+                        fetchUsage();
+                    });
+                }
                 return;
             }
+            const totalPages = Math.max(1, Math.ceil(entries.length / usagePageSize));
+            if (usagePage > totalPages) usagePage = totalPages;
+            if (usagePage < 1) usagePage = 1;
             const formatValue = (value) => {
                 if (typeof value === "number" && Number.isFinite(value)) {
                     return value.toLocaleString("en-US");
@@ -883,7 +1006,8 @@
                 return Math.round(currentBalance / costNum).toLocaleString("en-US");
             };
 
-            const entryRows = entries.slice(0, 10).map(entry => `
+            const startIndex = (usagePage - 1) * usagePageSize;
+            const entryRows = entries.slice(startIndex, startIndex + usagePageSize).map(entry => `
                 <tr>
                     <td>${formatValue(entry.timestamp)}</td>
                     <td>${formatValue(entry.type)}</td>
@@ -905,10 +1029,7 @@
                 </tr>
             `).join("");
             card.innerHTML = `
-                <div class="usage-header">
-                    <div class="model-title">Usage</div>
-                    <button type="button" id="usage-refresh" class="icon-btn" title="Refresh usage">↻</button>
-                </div>
+                ${headerHtml}
                 <div class="table-scroll">
                 <table class="usage-table">
                     <thead>
@@ -953,11 +1074,47 @@
                     </tfoot>
                 </table>
                 </div>
+                <div class="usage-pagination">
+                    <button type="button" id="usage-prev" class="btn">Prev</button>
+                    <div class="model-desc">Page ${usagePage} of ${totalPages}</div>
+                    <button type="button" id="usage-next" class="btn">Next</button>
+                </div>
             `;
             const refreshBtn = document.getElementById('usage-refresh');
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', function() {
                     fetchUsage();
+                });
+            }
+            const downloadBtn = document.getElementById('usage-download');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', function() {
+                    downloadUsageCSV();
+                });
+            }
+            const limitInput = document.getElementById('usage-limit');
+            if (limitInput) {
+                limitInput.addEventListener('change', function() {
+                    const next = Number(limitInput.value);
+                    if (!Number.isFinite(next)) return;
+                    usageLimit = Math.min(50000, Math.max(1, Math.round(next)));
+                    limitInput.value = usageLimit;
+                    localStorage.setItem("usage_limit", String(usageLimit));
+                    fetchUsage();
+                });
+            }
+            const prevBtn = document.getElementById('usage-prev');
+            const nextBtn = document.getElementById('usage-next');
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function() {
+                    usagePage = usagePage > 1 ? usagePage - 1 : totalPages;
+                    renderUsage(usageData);
+                });
+            }
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function() {
+                    usagePage = usagePage < totalPages ? usagePage + 1 : 1;
+                    renderUsage(usageData);
                 });
             }
         }
