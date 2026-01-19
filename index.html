@@ -968,9 +968,20 @@
             const totalPages = Math.max(1, Math.ceil(entries.length / usagePageSize));
             if (usagePage > totalPages) usagePage = totalPages;
             if (usagePage < 1) usagePage = 1;
+            const formatValue = (value) => {
+                if (typeof value === "number" && Number.isFinite(value)) {
+                    return value.toLocaleString("en-US");
+                }
+                return value || "—";
+            };
             const formatTimestamp = (value) => {
                 if (!value) return "—";
-                const date = new Date(value);
+                let raw = String(value);
+                // If API returns UTC without timezone, treat it as UTC.
+                if (raw && !/[zZ]|[+\-]\d{2}:?\d{2}$/.test(raw)) {
+                    raw += "Z";
+                }
+                const date = new Date(raw);
                 if (Number.isNaN(date.getTime())) return value;
                 return date.toLocaleString("en-US", {
                     year: "numeric",
@@ -981,12 +992,6 @@
                     second: "2-digit",
                     hour12: true
                 });
-            };
-            const formatValue = (value) => {
-                if (typeof value === "number" && Number.isFinite(value)) {
-                    return value.toLocaleString("en-US");
-                }
-                return value || "—";
             };
             const formatCost = (value) => {
                 if (typeof value === "number" && Number.isFinite(value)) {
