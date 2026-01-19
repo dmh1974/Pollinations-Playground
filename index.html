@@ -1022,8 +1022,11 @@
             const pricing = model.pricing || {};
             const pricingLines = Object.keys(pricing).map(key => {
                 const value = pricing[key];
-                const displayValue = typeof value === "number" ? formatNumber(value) : value;
-                return `<div><span class="model-label">${key}:</span> ${displayValue}</div>`;
+                if (typeof value === "number") {
+                    const displayValue = /Tokens/i.test(key) ? value.toFixed(8) : formatNumber(value);
+                    return `<div><span class="model-label">${key}:</span> ${displayValue}</div>`;
+                }
+                return `<div><span class="model-label">${key}:</span> ${value}</div>`;
             }).join("");
 
             details.innerHTML = `
@@ -1064,8 +1067,11 @@
             const pricing = model.pricing || {};
             const pricingLines = Object.keys(pricing).map(key => {
                 const value = pricing[key];
-                const displayValue = typeof value === "number" ? value.toLocaleString("en-US") : value;
-                return `<div><span class="model-label">${key}:</span> ${displayValue}</div>`;
+                if (typeof value === "number") {
+                    const displayValue = /Tokens/i.test(key) ? value.toFixed(8) : value.toLocaleString("en-US");
+                    return `<div><span class="model-label">${key}:</span> ${displayValue}</div>`;
+                }
+                return `<div><span class="model-label">${key}:</span> ${value}</div>`;
             }).join("");
             details.innerHTML = `
                 <div class="model-title">${model.name || "Unknown model"}</div>
