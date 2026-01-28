@@ -116,6 +116,19 @@
             </div>
         </div>
         <div class="card">
+            <div class="config-section">
+                <div class="config-field">
+                    <label for="verify-key-input" class="config-label">Verify Key</label>
+                    <input id="verify-key-input" type="text" class="config-input" placeholder="Enter key to verify">
+                </div>
+                <div class="row">
+                    <button type="button" id="verify-key-btn" class="btn">Verify Key</button>
+                    <button type="button" id="verify-key-clear" class="btn">Clear</button>
+                </div>
+                <div id="verify-key-card" class="model-card hidden"></div>
+            </div>
+        </div>
+        <div class="card">
             <div class="model-section">
                 <div class="model-title">Image Models</div>
                 <select id="image-model-select" class="model-select">
@@ -306,6 +319,7 @@
 
     <script>
         let AUTH = localStorage.getItem("pollinations_api_key") || "";
+        let VERIFY_KEY = localStorage.getItem("verify_key") || "";
         let memory = [];
         let state = { topic: "", level: "Beginner", nodeIndex: 0, mode: "chat" };
         let modelCatalog = [];
@@ -321,6 +335,9 @@
         if (!Number.isFinite(usageLimit) || usageLimit < 1) usageLimit = 100;
         if (usageLimit > 50000) usageLimit = 50000;
         let usageReverseColumns = localStorage.getItem("usage_reverse_columns") === "true";
+        let usageSearch = localStorage.getItem("usage_search") || "";
+        let usageSearchTimer = null;
+        let lastChatPrompt = localStorage.getItem("chat_last_prompt") || "";
         let configState = {
             systemPrompt: localStorage.getItem("chat_system_prompt") || "",
             temperature: Number(localStorage.getItem("chat_temperature")) || 0.7,
@@ -334,7 +351,11 @@
 
         // Focus input on page load
         window.addEventListener('load', function() {
-            document.getElementById('user-input').focus();
+            const userInput = document.getElementById('user-input');
+            userInput.focus();
+            if (state.mode === "chat" && lastChatPrompt) {
+                userInput.value = lastChatPrompt;
+            }
             const apiKeyInput = document.getElementById('api-key-input');
             apiKeyInput.value = localStorage.getItem("pollinations_api_key") || "";
             const redirectInput = document.getElementById('auth-redirect');
@@ -366,6 +387,32 @@
                     renderUsage(null);
                 }
             });
+            const verifyKeyInput = document.getElementById('verify-key-input');
+            verifyKeyInput.value = localStorage.getItem("verify_key") || "";
+            document.getElementById('verify-key-btn').addEventListener('click', function() {
+                const key = verifyKeyInput.value.trim();
+                if (key) {
+                    localStorage.setItem("verify_key", key);
+                    VERIFY_KEY = key;
+                    verifyKey();
+                }
+            });
+            document.getElementById('verify-key-clear').addEventListener('click', function() {
+                verifyKeyInput.value = "";
+                localStorage.removeItem("verify_key");
+                VERIFY_KEY = "";
+                renderVerifyKey(null);
+            });
+            verifyKeyInput.addEventListener('input', function(event) {
+                const nextKey = event.target.value.trim();
+                if (nextKey) {
+                    localStorage.setItem("verify_key", nextKey);
+                    VERIFY_KEY = nextKey;
+                } else {
+                    localStorage.removeItem("verify_key");
+                    VERIFY_KEY = "";
+                }
+            });
             const keyFromHash = new URLSearchParams(location.hash.slice(1)).get('api_key');
             if (keyFromHash) {
                 apiKeyInput.value = keyFromHash;
@@ -386,6 +433,11 @@
             });
             document.getElementById('mode-socrates').addEventListener('click', function() {
                 switchMode("socrates");
+            });
+            userInput.addEventListener('input', function(event) {
+                if (state.mode !== "chat") return;
+                lastChatPrompt = event.target.value;
+                localStorage.setItem("chat_last_prompt", lastChatPrompt);
             });
             const defaultLevel = document.querySelector('.level-btn[data-level="Beginner"]');
             if (defaultLevel) {
@@ -842,6 +894,96 @@
             }
         }
 
+        async function verifyKey() {
+            if (!VERIFY_KEY) {
+                renderVerifyKey(null);
+                return;
+            }
+            const verifyBtn = document.getElementById('verify-key-btn');
+            if (verifyBtn) {
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = "Verifying...";
+            }
+            try {
+                const res = await fetch("https://gen.pollinations.ai/account/key", {
+                    headers: { 'Authorization': `Bearer ${VERIFY_KEY}` }
+                });
+                const payload = await res.json();
+                if (!res.ok || (payload && payload.success === false)) {
+                    renderVerifyKey({ error: true, message: payload?.error?.message });
+                    return;
+                }
+                renderVerifyKey(payload);
+            } catch (e) {
+                console.error(e);
+                renderVerifyKey({ error: true, message: "Key verification failed. Check your key." });
+            } finally {
+                if (verifyBtn) {
+                    verifyBtn.disabled = false;
+                    verifyBtn.textContent = "Verify Key";
+                }
+            }
+        }
+
+        function renderVerifyKey(keyData) {
+            const card = document.getElementById('verify-key-card');
+            if (!keyData) {
+                card.classList.add('hidden');
+                card.innerHTML = "";
+                return;
+            }
+            card.classList.remove('hidden');
+            if (keyData.error) {
+                const message = keyData.message || "Key verification failed. Check your key.";
+                card.innerHTML = `<div class="model-desc">${message}</div>`;
+                return;
+            }
+            const formatValue = (value) => {
+                if (value === null || value === undefined) return "—";
+                if (typeof value === "boolean") return value ? "Yes" : "No";
+                if (typeof value === "number") return value.toLocaleString("en-US");
+                if (typeof value === "object" && Array.isArray(value)) {
+                    return value.length > 0 ? value.join(", ") : "None";
+                }
+                return String(value);
+            };
+            const formatDate = (value) => {
+                if (!value) return "—";
+                try {
+                    const date = new Date(value);
+                    if (Number.isNaN(date.getTime())) return value;
+                    return date.toLocaleString("en-US", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: true
+                    });
+                } catch (e) {
+                    return value;
+                }
+            };
+            const permissions = keyData.permissions || {};
+            const models = Array.isArray(permissions.models) ? permissions.models : [];
+            const account = Array.isArray(permissions.account) ? permissions.account : [];
+            card.innerHTML = `
+                <div class="model-title">Key Verification</div>
+                <div class="profile-row">
+                    <div class="model-label">Valid</div><div>${formatValue(keyData.valid)}</div>
+                    <div class="model-label">Type</div><div>${formatValue(keyData.type)}</div>
+                    <div class="model-label">Name</div><div>${formatValue(keyData.name)}</div>
+                    <div class="model-label">Expires At</div><div>${formatDate(keyData.expiresAt)}</div>
+                    <div class="model-label">Expires In</div><div>${formatValue(keyData.expiresIn)}</div>
+                    <div class="model-label">Pollen Budget</div><div>${formatValue(keyData.pollenBudget)}</div>
+                    <div class="model-label">Rate Limit Enabled</div><div>${formatValue(keyData.rateLimitEnabled)}</div>
+                    <div class="model-label">Models</div><div>${models.length > 0 ? models.join(", ") : "—"}</div>
+                    <div class="model-label">Account Permissions</div><div>${account.length > 0 ? account.join(", ") : "—"}</div>
+                </div>
+            `;
+        }
+
         function renderProfile(profile) {
             const card = document.getElementById('profile-card');
             if (!profile) {
@@ -913,6 +1055,8 @@
                 <div class="usage-header">
                     <div class="model-title">Usage</div>
                     <div class="row">
+                        <label for="usage-search" class="config-label">Search</label>
+                        <input id="usage-search" type="text" class="config-input" placeholder="Filter usage" value="${usageSearch}">
                         <label for="usage-limit" class="config-label">Limit</label>
                         <input id="usage-limit" type="number" min="1" max="50000" class="config-input" value="${usageLimit}">
                         <button type="button" id="usage-download" class="btn" title="Download usage CSV">Download</button>
@@ -928,6 +1072,18 @@
                 if (refreshBtn) {
                     refreshBtn.addEventListener('click', function() {
                         fetchUsage();
+                    });
+                }
+                const searchInput = document.getElementById('usage-search');
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        clearTimeout(usageSearchTimer);
+                        usageSearchTimer = setTimeout(() => {
+                            usageSearch = searchInput.value || "";
+                            localStorage.setItem("usage_search", usageSearch);
+                            usagePage = 1;
+                            renderUsage(usageData);
+                        }, 250);
                     });
                 }
                 const limitInput = document.getElementById('usage-limit');
@@ -952,6 +1108,18 @@
                         fetchUsage();
                     });
                 }
+                const searchInput = document.getElementById('usage-search');
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        clearTimeout(usageSearchTimer);
+                        usageSearchTimer = setTimeout(() => {
+                            usageSearch = searchInput.value || "";
+                            localStorage.setItem("usage_search", usageSearch);
+                            usagePage = 1;
+                            renderUsage(usageData);
+                        }, 250);
+                    });
+                }
                 const limitInput = document.getElementById('usage-limit');
                 if (limitInput) {
                     limitInput.addEventListener('change', function() {
@@ -965,9 +1133,6 @@
                 }
                 return;
             }
-            const totalPages = Math.max(1, Math.ceil(entries.length / usagePageSize));
-            if (usagePage > totalPages) usagePage = totalPages;
-            if (usagePage < 1) usagePage = 1;
             const formatValue = (value) => {
                 if (typeof value === "number" && Number.isFinite(value)) {
                     return value.toLocaleString("en-US");
@@ -999,7 +1164,14 @@
                 }
                 return value || "—";
             };
-            const totals = entries.reduce((acc, entry) => {
+            const query = usageSearch.trim().toLowerCase();
+            const filtered = query
+                ? entries.filter(entry => JSON.stringify(entry).toLowerCase().includes(query))
+                : entries;
+            const totalPages = Math.max(1, Math.ceil(filtered.length / usagePageSize));
+            if (usagePage > totalPages) usagePage = totalPages;
+            if (usagePage < 1) usagePage = 1;
+            const totals = filtered.reduce((acc, entry) => {
                 acc.input_text_tokens += Number(entry.input_text_tokens || 0);
                 acc.input_cached_tokens += Number(entry.input_cached_tokens || 0);
                 acc.input_audio_tokens += Number(entry.input_audio_tokens || 0);
@@ -1050,7 +1222,7 @@
                 { label: "Remaining", value: entry => remainingFor(entry.cost_usd), total: "—" }
             ];
             const orderedColumns = usageReverseColumns ? [...columns].reverse() : columns;
-            const entryRows = entries.slice(startIndex, startIndex + usagePageSize).map(entry => `
+            const entryRows = filtered.slice(startIndex, startIndex + usagePageSize).map(entry => `
                 <tr>
                     ${orderedColumns.map(column => `<td>${column.value(entry)}</td>`).join("")}
                 </tr>
@@ -1103,6 +1275,18 @@
                     usageReverseColumns = !usageReverseColumns;
                     localStorage.setItem("usage_reverse_columns", String(usageReverseColumns));
                     renderUsage(usageData);
+                });
+            }
+            const searchInput = document.getElementById('usage-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(usageSearchTimer);
+                    usageSearchTimer = setTimeout(() => {
+                        usageSearch = searchInput.value || "";
+                        localStorage.setItem("usage_search", usageSearch);
+                        usagePage = 1;
+                        renderUsage(usageData);
+                    }, 250);
                 });
             }
             const limitInput = document.getElementById('usage-limit');
@@ -1432,6 +1616,12 @@
             document.getElementById('feedback').innerText = "";
             document.getElementById('shortcut-buttons').classList.add('hidden');
             updateModeUI();
+            if (state.mode === "chat") {
+                const input = document.getElementById('user-input');
+                if (input) {
+                    input.value = lastChatPrompt;
+                }
+            }
         }
 
 
@@ -1500,6 +1690,10 @@
                 const input = document.getElementById('user-input');
                 val = input.value.trim();
                 if(!val) return;
+                if (state.mode === "chat") {
+                    lastChatPrompt = val;
+                    localStorage.setItem("chat_last_prompt", lastChatPrompt);
+                }
                 // Clear input immediately after getting the value
                 input.value = "";
             }
